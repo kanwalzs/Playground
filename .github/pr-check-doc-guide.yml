@@ -1,0 +1,84 @@
+name: Validate PR Documentation Guide Structure
+
+on:
+  pull_request:
+    paths:
+      - '**/*.md'   # Watch for markdown changes only
+
+jobs:
+  validate-guide:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find Changed Markdown Files
+        id: md_files
+        run: |
+          echo "files=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }} -- '*.md' | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Validate Guide Structure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const execSync = require('child_process').execSync;
+            const files = "${{ steps.md_files.outputs.files }}".trim().split(' ');
+            const errors = [];
+
+            files.forEach(file => {
+              const content = execSync(`cat ${file}`).toString();
+
+              // Check if the first heading is "Overview"
+              const matchFirst = content.match(/^#+\s+Overview/i);
+              if (!matchFirst) {
+                errors.push(`❌ The guide in **${file}** must start with a heading labeled "Overview".`);
+              }
+
+              // Check for required subsections under "Overview"
+              const requiredSections = [
+                "What You Will Learn",
+                "What You Will Build",
+                "Prerequisites",
+                "What You Will Need"
+              ];
+
+              requiredSections.forEach(sub => {
+                if (!content.match(new RegExp(`#.*${sub}`, 'i'))) {
+                  errors.push(`❌ Missing subsection "**${sub}**" under "Overview" in ${file}.`);
+                }
+              });
+
+              // Check for trial/signup links
+              if (!content.match(/https?:\/\/.*(snowflake|signup|login)/i)) {
+                errors.push(`⚠️ Consider adding trial or login links for tools like Snowflake in ${file}.`);
+              }
+
+              // Check last heading is "Conclusion And Resources"
+              const headings = [...content.matchAll(/^#+\s+(.*)$/gm)].map(m => m[1]);
+              const lastHeading = headings[headings.length - 1];
+              if (lastHeading?.toLowerCase() !== "conclusion and resources") {
+                errors.push(`❌ Last heading in **${file}** must be "Conclusion And Resources"`);
+              }
+
+              // Validate required subsections under Conclusion
+              ["Overview", "What You Learned", "Resources"].forEach(sub => {
+                if (!content.match(new RegExp(`#.*${sub}`, 'i'))) {
+                  errors.push(`❌ Missing subsection "**${sub}**" under "Conclusion And Resources" in ${file}.`);
+                }
+              });
+
+              // Warn if intermediate titles are too long or not in Title Case
+              const intermediate = headings.slice(1, -1);
+              intermediate.forEach(h => {
+                const wordCount = h.trim().split(/\s+/).length;
+                const titleCase = /^[A-Z][a-z0-9]*(?:\s+[A-Z][a-z0-9]*)*$/.test(h.trim());
+                if (wordCount > 4 || !titleCase) {
+                  errors.push(`⚠️ Step title "**${h}**" should be in Title Case and ≤ 4 words.`);
+                }
+              });
+            });
+
+            if (errors.length > 0) {
+              core.setFailed(errors.join('\n'));
+            } else {
+              console.log("✅ Guide structure looks good!");
+            }
