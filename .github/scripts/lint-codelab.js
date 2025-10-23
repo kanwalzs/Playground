@@ -3,7 +3,7 @@ const path = require('path');
 
 // --- Configuration ---
 
-const REQUIRED_H2_SECTIONS = [
+const REQUIRED_SECTIONS = [
   ['what you will learn', 'what youll learn'],
   ['what you will build', 'what youll build'],
   ['prerequisites', 'what you will need'],
