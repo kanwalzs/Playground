@@ -1,0 +1,57 @@
+name: codeowners
+
+on:
+  pull_request_target:
+    paths-ignore:
+      - '**/CODEOWNERS'
+      - 'LICENSE'
+    branches:
+      - main               # ← change to 'master' if needed
+    types:
+      - ready_for_review
+      - review_request_removed
+      - reopened
+      - labeled
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    # only apply on open (unmerged) PRs
+    if: github.event.pull_request.merged_by == ''
+    steps:
+      - name: Checkout PR head (with full history)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          token: ${{ secrets.PAT }}
+
+      - name: Update CODEOWNERS from git-fame
+        uses: gofunky/update-codeowners@v0.3.1
+        with:
+          distribution: 25     # % of lines to be considered an owner
+          username: true       # use @handles instead of emails
+          # path: .github/CODEOWNERS  # (default)
+
+      - name: Validate CODEOWNERS
+        id: validation
+        uses: mszostok/codeowners-validator@v0.5.1
+        with:
+          checks: files,owners,duppatterns
+          github_access_token: ${{ secrets.PAT }}
+
+      - name: Commit changed CODEOWNERS (if any)
+        id: committed
+        uses: stefanzweifel/git-auto-commit-action@v4.16.0
+        with:
+          commit_message: 'chore(meta): update CODEOWNERS'
+          file_pattern: .github/CODEOWNERS
+
+      - name: Add label if updated
+        if: ${{ steps.committed.outputs.changes_detected == 'true' }}
+        uses: christianvuerings/add-labels@v1.1
+        with:
+          labels: owned
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
