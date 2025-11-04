@@ -6,7 +6,7 @@ on:
       - '**/CODEOWNERS'
       - 'LICENSE'
     branches:
-      - main               # ← change to 'master' if needed
+      - main
     types:
       - ready_for_review
       - review_request_removed
@@ -16,7 +16,7 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
-    # only apply on open (unmerged) PRs
+    # only run on open (unmerged) PRs
     if: github.event.pull_request.merged_by == ''
     steps:
       - name: Checkout PR head (with full history)
@@ -30,9 +30,9 @@ jobs:
       - name: Update CODEOWNERS from git-fame
         uses: gofunky/update-codeowners@v0.3.1
         with:
-          distribution: 25     # % of lines to be considered an owner
-          username: true       # use @handles instead of emails
-          # path: .github/CODEOWNERS  # (default)
+          distribution: 25     # % of lines required to be considered an owner
+          username: true       # map emails to @github handles
+          # granular: true     # <-- uncomment if you want file-level ownership (more verbose)
 
       - name: Validate CODEOWNERS
         id: validation
